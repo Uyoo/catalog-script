@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER-pvc
+  namespace: $PROJECT_NAME-$EMPLOYEE_NUMBER
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: $REQUIRED_PVGi
+  storageClassName: nfs-csi-code-server

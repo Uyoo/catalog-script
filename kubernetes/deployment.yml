@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+      apps: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER
+  name: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER
+  namespace: $PROJECT_NAME-$EMPLOYEE_NUMBER
+spec:
+  selector:
+      matchLabels:
+          app: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER
+  replicas: 1
+  template: 
+    metadata:
+        labels:
+            app: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER
+    spec:
+      # Q) service account 논의
+      # serviceAccountName: coder
+      securityContext:
+        # runAsUser: 1000
+        fsGroup: 1000
+      
+      initContainers:
+      - name: code-server-init
+        image: $REGISTRY/$IMAGENAME
+        command: ["/bin/bash", "-c"]
+        args: ["sh /code-server-scripts/copy-codeserver-config.sh"]
+        volumeMounts:
+        - name: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER-vol
+          mountPath: /home/coder
+
+      containers:
+      - name: nginx
+        image: $REGISTRY/$IMAGE_NGINX
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        env:
+        - name: USER-TOKEN
+          value: "$USER_TOKEN"
+        - name: CATALOG-URL-EXT
+          value: "$CATALOG_URL_EXT"
+        - name: CATALOG-URL
+          value: "$CATALOG_URL"
+        command: ["/bin/bash", "-c"]
+        args: ["sh ./nginxReloader.sh $(USER-TOKEN) $(CATALOG-URL-EXT) $(CATALOG-URL)"]
+
+      - name: code-server
+        image: $REGISTRY/$IMAGE_NAME
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+              memory: "$REQUIRED_MEMORYMi"
+              cpu: "REQUIRED_CPUm"
+              # nvidia.com/gpu: GPU
+          limits:
+              memory: "REQUIRED_MEMORYMi"
+              cpu: "REQUIRED_CPUm"
+        ports:
+        - containerPort: 8443
+        volumeMounts:
+        - name: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER-vol
+          mountPath: /home/coder/
+        # readinessProbe:
+        #   tcpSocket:
+        #       port:  8443
+      # nodeSelector:
+      #     zone: nor
+      volumes:
+      - name: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER-vol
+        # hostPath:
+          # path: 
+          # type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: code-server-$IMAGE_NAME_REPLACED-$CATALOG_INFO_IDX-$EMPLOYEE_NUMBER-pvc
+      imagePullSecrets: 
+      - name: nexus-login
