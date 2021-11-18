@@ -1,0 +1,59 @@
+#!groovy
+pipeline {
+    agent {
+        label 'jenkins-slave'
+    }
+    stages{
+        stage('Initialize the variables') {
+            steps {
+                script {
+
+                    // Jenkins에서 PARAMS로 전달받은 data
+                    params = readJSON text: "${PARAMS}"
+                    EMPLOYEE_NUMBER = "${params.EMPLOYEE_NUMBER}"
+                    PROJECT_NAME = "${params.PROJECT_NAME}"
+                    IMAGE_NAME = "${params.IMAGE_NAME}"
+                    CATALOG_INFO_IDX = "${params.CATALOG_INFO_IDX}"
+                    CATALOG_INFO_STATUS = "${params.CATALOG_INFO_STATUS}"
+
+                    sh "echo 'params => ${params}'"
+                    sh "echo 'EMPLOYEE_NUMBER => ${EMPLOYEE_NUMBER}'"
+                    sh "echo 'PROJECT_NAME => ${PROJECT_NAME}'"
+                    sh "echo 'IMAGE_NAME => ${IMAGE_NAME}'"                
+                    sh "echo 'CATALOG_INFO_IDX => ${CATALOG_INFO_IDX}'"
+                    
+                }
+            }
+        }
+        
+        stage('Start Code-Server') {
+            steps{
+                script{
+                    sh "kubectl scale deployment code-server-${IMAGE_NAME}-${CATALOG_INFO_IDX}-${EMPLOYEE_NUMBER} --replicas=0 -n ${PROJECT_NAME}-${EMPLOYEE_NUMBER}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            sh "echo 'success'"
+            withCredentials([string(credentialsId: 'catalog_portal_token', variable: 'TOKEN')]) {
+                sh "curl -X POST -H 'X-AUTH-TOKEN: ${TOKEN}' -H 'Content-Type: application/json' '${CATALOG_URL}/api_v1/catalog/deployment/external/status' -d '{\"catalogInfoId\": \"${CATALOG_INFO_IDX}\", \"catalogInformationStatus\": \"ACTIVE\", \"message\": \"${DEPLOY_MESSAGE}\"}'"
+                // sh "curl -X POST -H 'X-AUTH-TOKEN: ${TOKEN}' -H 'Content-Type: application/json' '${CATALOG_URL}/api_v1/kubernetes/code-server/service' -d '{\"portInfos\": ${portInfos}}'"
+            }
+        }
+        failure {
+            sh "echo 'failure'"
+            withCredentials([string(credentialsId: 'catalog_portal_token', variable: 'TOKEN')]) {
+                sh "curl -X POST -H 'X-AUTH-TOKEN: ${TOKEN}' -H 'Content-Type: application/json' '${CATALOG_URL}/api_v1/catalog/deployment/external/status' -d '{\"catalogInfoId\": \"${CATALOG_INFO_IDX}\", \"catalogInformationStatus\": \"FAILURE\", \"message\": \"${DEPLOY_MESSAGE}\"}'"
+            }
+        }
+        aborted {
+            sh "echo 'aborted'"
+            withCredentials([string(credentialsId: 'catalog_portal_token', variable: 'TOKEN')]) {
+                sh "curl -X POST -H 'X-AUTH-TOKEN: ${TOKEN}' -H 'Content-Type: application/json' '${CATALOG_URL}/api_v1/catalog/deployment/external/status' -d '{\"catalogInfoId\": \"${CATALOG_INFO_IDX}\", \"catalogInformationStatus\": \"FAILURE\", \"message\": \"Lack of Resources\"}'"
+            }
+        }
+    }
+}

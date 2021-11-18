@@ -41,8 +41,8 @@ pipeline {
                     sh "echo 'CATALOG_URL_EXT => ${CATALOG_URL_EXT}'"
                     sh "echo 'IMAGE_NGINX => ${IMAGE_NGINX}'"
 
-                    portInfos = writeJSON returnText: true, json: params.PORT_INFOS
-                    sh "echo 'portInfos => ${portInfos}'"
+                    // portInfos = writeJSON returnText: true, json: params.PORT_INFOS
+                    // sh "echo 'portInfos => ${portInfos}'"
                 }
             }
         }
